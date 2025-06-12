@@ -1,0 +1,167 @@
+<!-- This file includes embedded JS/CSS due to project type rules -->
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 16px;
+    }
+    h2 {
+      font-size: 18px;
+      margin-bottom: 16px;
+    }
+    form#configForm {
+      display: flex;
+      flex-direction: column;
+    }
+    fieldset {
+      border: 1px solid #ccc;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+    legend {
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    label {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 12px;
+      font-size: 14px;
+    }
+    input[type="text"],
+    input[type="url"],
+    select {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+      margin-top: 4px;
+    }
+    .toggle-group {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .toggle-group input {
+      margin-right: 8px;
+    }
+    .buttonRow {
+      display: flex;
+      flex-direction: column;
+    }
+    .buttonRow button {
+      padding: 10px;
+      margin-top: 8px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    @media (min-width: 600px) {
+      .buttonRow {
+        flex-direction: row;
+        justify-content: space-between;
+      }
+      .buttonRow button {
+        margin-top: 0;
+        width: 32%;
+      }
+    }
+    button:focus,
+    input:focus {
+      outline: 2px solid #005a9c;
+    }
+  </style>
+</head>
+<body>
+  <h2 id="sidebarTitle">DirectoryFlow Configuration</h2>
+  <form id="configForm" role="form" aria-labelledby="sidebarTitle">
+    <fieldset>
+      <legend>Field Mappings</legend>
+      <label for="nameField">
+        Directory Field "Name"
+        <input type="text" id="nameField" name="nameField" required aria-required="true">
+      </label>
+      <label for="descriptionField">
+        Directory Field "Description"
+        <input type="text" id="descriptionField" name="descriptionField" required aria-required="true">
+      </label>
+      <label for="imageUrlField">
+        Directory Field "Image URL"
+        <input type="url" id="imageUrlField" name="imageUrlField" required aria-required="true" placeholder="https://example.com/image.jpg">
+      </label>
+    </fieldset>
+    <fieldset>
+      <legend>Options</legend>
+      <div class="toggle-group">
+        <input type="checkbox" id="enableFilters" name="enableFilters">
+        <label for="enableFilters">Enable Filters</label>
+      </div>
+      <div class="toggle-group">
+        <input type="checkbox" id="enableGeolocation" name="enableGeolocation">
+        <label for="enableGeolocation">Enable Geolocation</label>
+      </div>
+    </fieldset>
+    <div class="buttonRow">
+      <button type="button" id="saveBtn">Save Configuration</button>
+      <button type="button" id="previewBtn">Preview</button>
+      <button type="button" id="publishBtn">Publish</button>
+    </div>
+  </form>
+  <script>
+    function getFormData() {
+      const form = document.getElementById('configForm');
+      const nameField = form.nameField.value.trim();
+      const descriptionField = form.descriptionField.value.trim();
+      const imageUrlField = form.imageUrlField.value.trim();
+      if (!nameField) throw new Error("Missing input: Directory Field 'Name'");
+      if (!descriptionField) throw new Error("Missing input: Directory Field 'Description'");
+      if (!imageUrlField) throw new Error("Missing input: Directory Field 'Image URL'");
+      try {
+        new URL(imageUrlField);
+      } catch (e) {
+        throw new Error("Invalid URL format for 'Image URL'");
+      }
+      return {
+        mapping: {
+          name: nameField,
+          description: descriptionField,
+          imageUrl: imageUrlField
+        },
+        enableFilters: form.enableFilters.checked,
+        enableGeolocation: form.enableGeolocation.checked
+      };
+    }
+    document.getElementById('saveBtn').addEventListener('click', () => {
+      try {
+        const config = getFormData();
+        google.script.run
+          .withSuccessHandler(() => alert('Configuration saved successfully.'))
+          .withFailureHandler(err => alert('Error saving configuration: ' + (err.message || err.toString())))
+          .saveMapping(config.mapping);
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+    document.getElementById('previewBtn').addEventListener('click', () => {
+      google.script.run
+        .withSuccessHandler(() => {})
+        .withFailureHandler(err => alert('Error opening preview: ' + (err.message || err.toString())))
+        .openPreview();
+    });
+    document.getElementById('publishBtn').addEventListener('click', () => {
+      google.script.run
+        .withSuccessHandler(url => {
+          if (url) {
+            alert('Published successfully. Site URL: ' + url);
+          } else {
+            alert('Published successfully.');
+          }
+        })
+        .withFailureHandler(err => alert('Error publishing site: ' + (err.message || err.toString())))
+        .publishStaticSite();
+    });
+  </script>
+</body>
+</html>
