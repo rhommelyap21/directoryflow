@@ -1,0 +1,140 @@
+<!-- This file includes embedded JS/CSS due to project type rules -->
+<script>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <title>Directory Preview</title>
+  <style>
+    #preview {
+      padding: 16px;
+      font-family: Arial, sans-serif;
+      overflow-x: auto;
+    }
+    #preview table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+    }
+    #preview th, #preview td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+    #preview #map {
+      width: 100%;
+      height: 400px;
+      margin-top: 16px;
+    }
+    #preview .error {
+      color: red;
+      font-weight: bold;
+    }
+    @media (max-width: 600px) {
+      #preview #map {
+        height: 300px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="preview" role="region" aria-live="polite" aria-label="Directory preview">
+    Loading preview...
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      google.script.run
+        .withSuccessHandler(renderPreview)
+        .withFailureHandler(handleError)
+        .buildJsonFeed();
+    });
+
+    function renderPreview(feed) {
+      var container = document.getElementById('preview');
+      container.innerHTML = '';
+      if (!feed) {
+        handleError('No data returned.');
+        return;
+      }
+      if (!Array.isArray(feed)) {
+        handleError('Invalid data format.');
+        return;
+      }
+      var headers = [];
+      if (feed.length) {
+        headers = Object.keys(feed[0]);
+        var table = document.createElement('table');
+        table.setAttribute('aria-label', 'Directory listings table');
+        var thead = document.createElement('thead');
+        var headerRow = document.createElement('tr');
+        headers.forEach(function(h) {
+          var th = document.createElement('th');
+          th.textContent = h;
+          headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+        var tbody = document.createElement('tbody');
+        feed.forEach(function(item) {
+          var row = document.createElement('tr');
+          headers.forEach(function(h) {
+            var td = document.createElement('td');
+            td.textContent = item[h] != null ? item[h] : '';
+            row.appendChild(td);
+          });
+          tbody.appendChild(row);
+        });
+        table.appendChild(tbody);
+        container.appendChild(table);
+      } else {
+        var message = document.createElement('p');
+        message.textContent = 'No listings to display.';
+        container.appendChild(message);
+      }
+      var latKey = headers.find(function(h) { return /lat/i.test(h); });
+      var lngKey = headers.find(function(h) { return /lon|lng|long/i.test(h); });
+      var hasGeo = latKey && lngKey && feed.some(function(item) {
+        return item[latKey] != null && item[lngKey] != null;
+      });
+      if (hasGeo && window.google && google.maps) {
+        var mapDiv = document.createElement('div');
+        mapDiv.id = 'map';
+        mapDiv.setAttribute('role', 'region');
+        mapDiv.setAttribute('aria-label', 'Map of listings');
+        container.appendChild(mapDiv);
+        var firstValid = feed.find(function(item) {
+          var lat = parseFloat(item[latKey]);
+          var lng = parseFloat(item[lngKey]);
+          return !isNaN(lat) && !isNaN(lng);
+        });
+        var center = {
+          lat: parseFloat(firstValid[latKey]),
+          lng: parseFloat(firstValid[lngKey])
+        };
+        var map = new google.maps.Map(mapDiv, {
+          center: center,
+          zoom: 8
+        });
+        feed.forEach(function(item) {
+          var lat = parseFloat(item[latKey]);
+          var lng = parseFloat(item[lngKey]);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            new google.maps.Marker({
+              position: { lat: lat, lng: lng },
+              map: map
+            });
+          }
+        });
+      }
+    }
+
+    function handleError(error) {
+      var container = document.getElementById('preview');
+      var message = typeof error === 'string' ? error : (error.message || 'An unknown error occurred.');
+      container.innerHTML = '<p class="error">Error: ' + message + '</p>';
+    }
+  </script>
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=<?!= PropertiesService.getScriptProperties().getProperty('MAPS_API_KEY') ?>"></script>
+</body>
+</html>
+</script>
