@@ -1,0 +1,198 @@
+<!-- This file includes embedded JS/CSS due to project type rules -->
+<script>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Submit New Listing</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 10px;
+      margin: 0;
+    }
+    h2 {
+      margin-top: 0;
+    }
+    .form-group {
+      margin-bottom: 1em;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.3em;
+      font-weight: bold;
+    }
+    input[type="text"],
+    input[type="email"],
+    input[type="url"],
+    input[type="tel"],
+    textarea,
+    select {
+      width: 100%;
+      padding: 0.5em;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 1em;
+    }
+    button {
+      background-color: #4285f4;
+      color: white;
+      border: none;
+      padding: 0.6em 1.2em;
+      font-size: 1em;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:disabled {
+      background-color: #aaa;
+      cursor: not-allowed;
+    }
+    .error {
+      color: #b00020;
+      margin-top: 0.5em;
+    }
+    #message {
+      margin-top: 1em;
+    }
+  </style>
+</head>
+<body>
+  <h2>Submit New Listing</h2>
+  <form id="submissionForm" novalidate>
+    <div id="formContainer"></div>
+    <button type="submit" id="submitButton">Submit</button>
+  </form>
+  <div id="message" role="alert" aria-live="polite"></div>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.getElementById('submissionForm');
+      form.addEventListener('submit', handleSubmit);
+      // Render form with static field definitions instead of server call
+      renderForm([
+        { name: 'title', label: 'Title', type: 'text', required: true, placeholder: 'Listing Title' },
+        { name: 'description', label: 'Description', type: 'textarea', required: true, placeholder: 'Enter description...', rows: 4 },
+        { name: 'email', label: 'Contact Email', type: 'email', required: true, placeholder: 'email@example.com' },
+        { name: 'url', label: 'Website', type: 'url', required: false, placeholder: 'https://example.com' },
+        { name: 'phone', label: 'Phone', type: 'tel', required: false, placeholder: '(555) 555-5555' },
+        { name: 'category', label: 'Category', type: 'select', required: true, options: [
+            { value: '', label: 'Select a category' },
+            { value: 'restaurant', label: 'Restaurant' },
+            { value: 'shopping', label: 'Shopping' },
+            { value: 'services', label: 'Services' }
+          ]
+        }
+      ]);
+    });
+
+    function renderForm(fields) {
+      const container = document.getElementById('formContainer');
+      container.innerHTML = '';
+      fields.forEach(field => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'form-group';
+        const label = document.createElement('label');
+        label.htmlFor = field.name;
+        label.textContent = field.label + (field.required ? ' *' : '');
+        wrapper.appendChild(label);
+        let input;
+        if (field.type === 'textarea') {
+          input = document.createElement('textarea');
+          input.rows = field.rows || 4;
+        } else if (field.type === 'select') {
+          input = document.createElement('select');
+          field.options.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt.value;
+            option.textContent = opt.label;
+            input.appendChild(option);
+          });
+        } else {
+          input = document.createElement('input');
+          input.type = field.type || 'text';
+        }
+        input.id = field.name;
+        input.name = field.name;
+        if (field.placeholder) input.placeholder = field.placeholder;
+        if (field.required) input.required = true;
+        wrapper.appendChild(input);
+        container.appendChild(wrapper);
+      });
+    }
+
+    function handleSubmit(event) {
+      event.preventDefault();
+      clearMessage();
+      let values;
+      try {
+        values = getFormValues();
+      } catch (err) {
+        showError(err.message);
+        return;
+      }
+      document.getElementById('submitButton').disabled = true;
+      google.script.run
+        .withSuccessHandler(showThankYou)
+        .withFailureHandler(handleServerError)
+        .submitFormData(values);
+    }
+
+    function getFormValues() {
+      const form = document.getElementById('submissionForm');
+      const elements = form.querySelectorAll('[name]');
+      if (elements.length === 0) throw new Error('Form configuration is missing.');
+      const values = {};
+      for (const el of elements) {
+        const name = el.name;
+        const value = el.value.trim();
+        if (el.required && !value) {
+          throw new Error('Please fill the "' + getLabelText(name) + '" field.');
+        }
+        values[name] = sanitize(value);
+      }
+      return values;
+    }
+
+    function showThankYou() {
+      const form = document.getElementById('submissionForm');
+      form.innerHTML = '<p>Thank you for your submission.</p>';
+    }
+
+    function showError(message) {
+      const msgEl = document.getElementById('message');
+      msgEl.textContent = message;
+      msgEl.className = 'error';
+    }
+
+    function clearMessage() {
+      const msgEl = document.getElementById('message');
+      msgEl.textContent = '';
+      msgEl.className = '';
+    }
+
+    function getLabelText(inputName) {
+      const label = document.querySelector('label[for="' + inputName + '"]');
+      return label ? label.textContent.replace('*', '').trim() : inputName;
+    }
+
+    function sanitize(str) {
+      return str.replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+    }
+
+    function handleServerError(error) {
+      showError(error.message || 'An unexpected error occurred.');
+      document.getElementById('submitButton').disabled = false;
+    }
+
+    function handleLoadError(error) {
+      showError('Failed to load form: ' + (error.message || error));
+    }
+  </script>
+</body>
+</html>
+</script>
